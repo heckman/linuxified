@@ -1,0 +1,161 @@
+#!/usr/bin/env bash
+
+#  linuxified
+#
+#  a lightweight linux docker wrapper for cross-platform testing
+#  designed to be renamed to describe the default command it wraps
+#
+#  requires docker
+
+# shellcheck disable=SC2120
+set -euo pipefail
+
+# USAGE:
+#
+# set DEV to non-empty value to expose the docker image control functions
+# or call this script by its one true name.
+[[ "${BASH_SOURCE[0]##*/}" == linuxified ]] && DEV=engaged
+
+VERBOSITY="${VERBOSITY:-1}"
+readonly debug_verbosity=3 info_verbosity=2 std_verbosity=1 # silent=0
+
+main(){
+  if [[ -n "${DEV:-}" ]]; then
+    case "${1:-}" in
+      clean) clean;; # remove all but latest docker image of this name
+      clear) clear;; # remove all docker images of this name
+      build) build;; # build the docker image, if it doens't exist
+      *) run "$@";;  # run any command, or an interactive shell (no arguments)
+    esac
+  else
+    run "${default_command[@]}" "$@"
+  fi
+}
+
+
+## application-specific settings
+
+# images with this name will be clobberd
+readonly image_name=gitwatch-lbats
+
+# this will be mounted in the docker image, the path must be absolute
+source_root_dir=$(git rev-parse --show-toplevel)
+readonly source_root_dir
+
+# the root of the source will be mounted here
+readonly image_root_dir=/root/gitwatch
+
+# this command must be available in the docker image
+# set to empty array to execute targets directly
+readonly -a default_command=( bats -p )
+
+# packaged required by the default command (at the very least)
+# include the full package manager command
+readonly package_installer='apk add --no-cache bats git ncurses procps-ng inotify-tools'
+
+
+## root user settings
+
+readonly image_work_dir=/root/repo
+
+readonly -A files=(
+  [/root/.gitconfig]="
+[user]
+	email = tester@testing.test
+	name = tester
+[init]
+	defaultBranch = primus # so code cannot assume otherwise
+"
+  [/root/.profile]="
+ln -s '/usr/local/bin/gitwatch' '$image_root_dir/gitwatch.sh'
+git init '$image_work_dir'
+echo 'Starting gitwatch...'
+gitwatch '$image_work_dir' &
+cd '$image_work_dir'
+"
+)
+
+
+## pretty generic dockerfile
+
+print_dockerfile(){
+  echo 'FROM alpine:latest'
+  echo "RUN $package_installer"
+  echo 'SHELL ["/bin/bash","-c"]'
+  echo 'ENV TERM=xterm-256color'
+  # write all files
+  for filename in "${!files[@]}"; do
+    printf "RUN cat> %s <<'EOF'\n%s\nEOF\n" "$filename" "${files[$filename]}";
+  done
+}
+
+
+
+## SHOULDN'T NEED TO CHANGE ANYTHING BELOW THIS LINE
+
+output(){ if (( $# == 0)); then cat - ; else echo "$@"; fi; }
+print(){ (( "$VERBOSITY" >= std_verbosity )) && outout "$@"; }
+info(){ (( "$VERBOSITY" >= info_verbosity )) && outout "$@"; }
+debug(){ (( "$VERBOSITY" >= debug_verbosity )) && outout "$@"; }
+
+# identifies the version of the image by a hash of this script
+image_tag=$(md5 < "$0")
+readonly image_tag
+
+
+# if no arguments are provided,
+# starts an interactive shell in the container
+run(){
+  build
+  local interactive_options=
+  if (( $# == 0 )); then interactive_options=-ti; fi
+  info '-> Running docker container'
+  info ''
+  docker run --rm \
+    --mount source="$source_root_dir",target="$image_root_dir",type=bind \
+    --workdir="$image_root_dir${PWD#"$source_root_dir"}" \
+    $interactive_options "$image_name:$image_tag" "$@" | print
+  info ''
+  clean
+}
+
+# shellcheck disable=SC2086
+clean(){
+  local old_images
+  old_images=$(docker images \
+    | awk '$1=="'$image_name'" && $2!="'$image_tag'"{print $1":"$2}')
+  if [[ -n "$old_images" ]]; then
+    info "-> Deleting older $image_name docker images"
+    docker image rm $old_images | info
+  fi
+}
+
+# shellcheck disable=SC2086
+clear(){
+  local all_images
+  all_images=$(docker images awk '$1=="'$image_name'"{print $1":"$2}')
+  if [[ -n "$all_images" ]]; then
+    info "-> Deleting all $image_name docker images"
+    docker image rm $all_images | info
+  fi
+}
+
+build(){
+  if exists "$image_name:$image_tag"; then
+    info "-> Using existing docker image:"
+    docker image ls "$image_name:$image_tag" | info
+  else
+    dockerfile="$(mktemp)"
+    # shellcheck disable=SC2064 # expand filename now
+    trap "rm -- '$dockerfile'" EXIT
+    print_dockerfile > "$dockerfile"
+    info "-> Writting docker image $image_name:$image_tag"
+    docker buildx build -f "$dockerfile" -t "$image_name:$image_tag" . |& debug
+  fi
+}
+
+exists(){
+  [[ -n $(docker images -q "$1") ]] > /dev/null
+}
+
+main "$@"
