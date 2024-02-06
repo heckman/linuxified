@@ -63,6 +63,8 @@ readonly -a interactive_shell=( /bin/bash --login )
 ## root user settings
 
 readonly image_work_dir=/root/repo
+# shellcheck disable=SC2016 # expressions when printing the prompt
+readonly root_prompt='$(printf "%3s" ${?#0}) \w # ' # diplays exit code if > 0
 
 # define supporting files to be written
 readonly -A files=(
@@ -76,6 +78,7 @@ readonly -A files=(
 [/root/.profile]="
 # this will only be sourced in the interactive shell
 #
+PS1='$root_prompt'
 ln -s '$image_root_dir/gitwatch.sh' '/usr/local/bin/gitwatch'
 echo 'Starting gitwatch...'
 git init '$image_work_dir'
