@@ -1,0 +1,28 @@
+#!/bin/sh to_be_sourced_with_bash_or_zsh_or_maybe_(d)ash
+gitwatch_test_repo=gitwatch-test-repo
+
+LINUXIFIED_REPO_DIRECTORY="$(git rev-parse --show-toplevel)"
+if test -f "$LINUXIFIED_REPO_DIRECTORY/test/gitwatch-bats-init" \
+  && cd "$LINUXIFIED_REPO_DIRECTORY/test/"
+then
+	git clone https://github.com/heckman/gitwatch.git $gitwatch_test_repo
+	echo '*' >> $gitwatch_test_repo/.gitignore
+	ln -s "../../../linuxified" $gitwatch_test_repo/tests/lbats
+	if cd $gitwatch_test_repo/tests
+	then
+		echo "cd '$LINUXIFIED_REPO_DIRECTORY/test' && . ./gitwatch-bats-cleanup" > cleanup_testing_environment
+		echo
+		echo "'./lbats .' will run all bats tests in this directory"
+		echo "using bats in a linux container."
+		echo "'. ./cleanup_testing_environment' will remove this gitwatch-bats testing environment."
+	else
+  		echo "Bad directory:"
+		echo "Couldn't change directory to '$gitwatch_test_repo/tests'"
+		false
+	fi
+else
+  echo "Bad directory:"
+  echo "expecting file '$LINUXIFIED_REPO_DIRECTORY/test/gitwatch-bats-init}' to exist"
+  false
+fi
+

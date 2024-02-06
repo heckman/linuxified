@@ -1,0 +1,16 @@
+#!/bin/sh to_be_sourced_with_bash_or_zsh
+
+if test -f "$LINUXIFIED_REPO_DIRECTORY/test/gitwatch-bats-cleanup" \
+  && cd "$LINUXIFIED_REPO_DIRECTORY/test/"
+then
+  rm -I -rf "$LINUXIFIED_REPO_DIRECTORY/test/gitwatch-test-repo"
+  docker_images=$(docker image ls -q gitwatch-lbats)
+  for image in $docker_images; do
+    docker image rm "$image"
+  done
+else
+  echo "Bad directory:"
+  echo "expecting file '$LINUXIFIED_REPO_DIRECTORY/test/gitwatch-bats-cleanup}' to exist"
+  false
+fi
+
