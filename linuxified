@@ -95,7 +95,8 @@ print_dockerfile(){
 
 
 # identifies the version of the image by a hash of this script
-image_tag=$(md5 < "$0")
+image_tag=$(md5 -q < "$0")
+image_tag=${image_tag:0:12} # 6 bytes should be enough
 readonly image_tag
 
 # shellcheck disable=SC2015
