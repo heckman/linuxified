@@ -85,8 +85,9 @@ gitwatch '$image_work_dir' &
 print_dockerfile(){
   echo 'FROM alpine:latest'
   echo "RUN $package_installer"
-  echo 'SHELL ["/bin/bash","-c"]'
-  echo 'ENV TERM=xterm-256color'
+  echo "ENV TERM=xterm-256color"
+  # add any custom instructions required...
+
   # write all files
   for filename in "${!files[@]}"; do
     printf "RUN cat> %s <<'EOF'\n%s\nEOF\n" "$filename" "${files[$filename]}";
