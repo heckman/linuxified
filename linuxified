@@ -121,12 +121,15 @@ run(){
     set -- "${interactive_shell[@]}"
   fi
   logger <<<'-> Running docker container'
+  echo
   docker run --rm \
     --mount source="$source_root_dir",target="$image_root_dir",type=bind \
     --workdir="$image_root_dir${PWD#"$source_root_dir"}" \
     "${interactive_options[@]}" "$image_name:$image_tag" "$@"
+  echo
   clean |& logger
 }
+
 
 # shellcheck disable=SC2086
 clean(){
