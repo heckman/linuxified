@@ -1,4 +1,4 @@
-#!/bin/sh to_be_sourced_with_bash_or_zsh
+#!/bin/dash to_be_sourced
 
 if test -f "$LINUXIFIED_REPO_DIRECTORY/test/gitwatch-bats-cleanup" \
   && cd "$LINUXIFIED_REPO_DIRECTORY/test/"

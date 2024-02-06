@@ -1,4 +1,4 @@
-#!/bin/sh to_be_sourced_with_bash_or_zsh_or_maybe_(d)ash
+#!/bin/dash to_be_sourced
 gitwatch_test_repo=gitwatch-test-repo
 
 LINUXIFIED_REPO_DIRECTORY="$(git rev-parse --show-toplevel)"
