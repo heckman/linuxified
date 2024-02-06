@@ -53,6 +53,7 @@ readonly -a default_command=( bats -p )
 # include the full package manager command
 readonly package_installer='apk add --no-cache bats git ncurses procps-ng inotify-tools'
 
+readonly -a interactive_shell=( /bin/bash --login )
 
 ## root user settings
 
@@ -106,13 +107,16 @@ logger(){ [[ "${1:-0}" -lt "${verbosity}" ]] && cat > "$log" || cat > /dev/null;
 # starts an interactive shell in the container
 run(){
   build
-  local interactive_options=
-  if (( $# == 0 )); then interactive_options=-ti; fi
+  local -a interactive_options=()
+  if (( $# == 0 )); then
+    interactive_options=( --tty --interactive );
+    set -- "${interactive_shell[@]}"
+  fi
   logger <<<'-> Running docker container'
   docker run --rm \
     --mount source="$source_root_dir",target="$image_root_dir",type=bind \
     --workdir="$image_root_dir${PWD#"$source_root_dir"}" \
-    $interactive_options "$image_name:$image_tag" "$@"
+    "${interactive_options[@]}" "$image_name:$image_tag" "$@"
   clean |& logger
 }
 
