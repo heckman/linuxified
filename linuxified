@@ -59,6 +59,7 @@ readonly -a interactive_shell=( /bin/bash --login )
 
 readonly image_work_dir=/root/repo
 
+# define supporting files to be written
 readonly -A files=(
   [/root/.gitconfig]="
 [user]
@@ -68,11 +69,13 @@ readonly -A files=(
 	defaultBranch = primus # so code cannot assume otherwise
 "
   [/root/.profile]="
-ln -s '/usr/local/bin/gitwatch' '$image_root_dir/gitwatch.sh'
-git init '$image_work_dir'
+# this will only be sourced in the interactive shell
+#
+ln -s '$image_root_dir/gitwatch.sh' '/usr/local/bin/gitwatch'
 echo 'Starting gitwatch...'
-gitwatch '$image_work_dir' &
+git init '$image_work_dir'
 cd '$image_work_dir'
+gitwatch '$image_work_dir' &
 "
 )
 
