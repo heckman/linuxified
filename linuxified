@@ -12,15 +12,15 @@ set -euo pipefail
 
 # USAGE:
 #
-# set DEV to non-empty value to expose the docker image control functions
-# or call this script by its one true name.
-[[ "${BASH_SOURCE[0]##*/}" == linuxified ]] && DEV=engaged
+# set LINUXIFIED to non-empty value to expose the docker image control functions
+# it's value will also control verbosity from 0 (silent) to 2 (debug)
+declare verbosity=0
+readonly log=/dev/stdout
 
-VERBOSITY="${VERBOSITY:-1}"
-readonly debug_verbosity=3 info_verbosity=2 std_verbosity=1 # silent=0
 
 main(){
-  if [[ -n "${DEV:-}" ]]; then
+  if [[ -n "${LINUXIFIED:-}" ]]; then
+    [[ "${LINUXIFIED:-}" == [0-9] ]] && verbosity=$LINUXIFIED || verbosity=0
     case "${1:-}" in
       clean) clean;; # remove all but latest docker image of this name
       clear) clear;; # remove all docker images of this name
@@ -93,15 +93,13 @@ print_dockerfile(){
 
 ## SHOULDN'T NEED TO CHANGE ANYTHING BELOW THIS LINE
 
-output(){ if (( $# == 0)); then cat - ; else echo "$@"; fi; }
-print(){ (( "$VERBOSITY" >= std_verbosity )) && outout "$@"; }
-info(){ (( "$VERBOSITY" >= info_verbosity )) && outout "$@"; }
-debug(){ (( "$VERBOSITY" >= debug_verbosity )) && outout "$@"; }
 
 # identifies the version of the image by a hash of this script
 image_tag=$(md5 < "$0")
 readonly image_tag
 
+# shellcheck disable=SC2015
+logger(){ [[ "${1:-0}" -lt "${verbosity}" ]] && cat > "$log" || cat > /dev/null; }
 
 # if no arguments are provided,
 # starts an interactive shell in the container
@@ -109,14 +107,12 @@ run(){
   build
   local interactive_options=
   if (( $# == 0 )); then interactive_options=-ti; fi
-  info '-> Running docker container'
-  info ''
+  logger <<<'-> Running docker container'
   docker run --rm \
     --mount source="$source_root_dir",target="$image_root_dir",type=bind \
     --workdir="$image_root_dir${PWD#"$source_root_dir"}" \
-    $interactive_options "$image_name:$image_tag" "$@" | print
-  info ''
-  clean
+    $interactive_options "$image_name:$image_tag" "$@"
+  clean |& logger
 }
 
 # shellcheck disable=SC2086
@@ -125,32 +121,35 @@ clean(){
   old_images=$(docker images \
     | awk '$1=="'$image_name'" && $2!="'$image_tag'"{print $1":"$2}')
   if [[ -n "$old_images" ]]; then
-    info "-> Deleting older $image_name docker images"
-    docker image rm $old_images | info
+    logger <<<'-> Removing old images'
+    docker image rm $old_images |& logger 1
   fi
+  logger <<<"-> Retained image $image_name:$image_tag"
 }
 
 # shellcheck disable=SC2086
 clear(){
   local all_images
-  all_images=$(docker images awk '$1=="'$image_name'"{print $1":"$2}')
+  all_images=$(docker images | awk '$1=="'$image_name'"{print $1":"$2}')
   if [[ -n "$all_images" ]]; then
-    info "-> Deleting all $image_name docker images"
-    docker image rm $all_images | info
+    logger <<<"-> Removing all images of $image_name:"
+    docker image rm $all_images |& logger 1
+  else
+    logger <<<"-> No images to remove"
   fi
 }
 
 build(){
   if exists "$image_name:$image_tag"; then
-    info "-> Using existing docker image:"
-    docker image ls "$image_name:$image_tag" | info
+    logger <<<'-> Using existing image'
+    docker image ls "$image_name:$image_tag" |& logger 1
   else
     dockerfile="$(mktemp)"
     # shellcheck disable=SC2064 # expand filename now
     trap "rm -- '$dockerfile'" EXIT
     print_dockerfile > "$dockerfile"
-    info "-> Writting docker image $image_name:$image_tag"
-    docker buildx build -f "$dockerfile" -t "$image_name:$image_tag" . |& debug
+    logger <<<'-> Building new image'
+    docker buildx build -f "$dockerfile" -t "$image_name:$image_tag" . |& logger 1
   fi
 }
 
