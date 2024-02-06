@@ -39,7 +39,8 @@ main(){
 readonly image_name=gitwatch-lbats
 
 # this will be mounted in the docker image, the path must be absolute
-source_root_dir=$(git rev-parse --show-toplevel)
+# use "$(git rev-parse --show-toplevel)" for the root of the current git repo
+source_root_dir="$(git rev-parse --show-toplevel)"
 readonly source_root_dir
 
 # the root of the source will be mounted here
@@ -48,6 +49,7 @@ readonly image_root_dir=/root/gitwatch
 # this command must be available in the docker image
 # set to empty array to execute targets directly
 readonly -a default_command=( bats -p )
+
 
 ## dockerfile definition
 
@@ -71,7 +73,7 @@ readonly -A files=(
 [init]
 	defaultBranch = primus # so code cannot assume otherwise
 "
-  [/root/.profile]="
+[/root/.profile]="
 # this will only be sourced in the interactive shell
 #
 ln -s '$image_root_dir/gitwatch.sh' '/usr/local/bin/gitwatch'
