@@ -49,9 +49,12 @@ readonly image_root_dir=/root/gitwatch
 # set to empty array to execute targets directly
 readonly -a default_command=( bats -p )
 
-# packaged required by the default command (at the very least)
+## dockerfile definition
+
+readonly image_from='alpine:latest'
+# packages required by the default command (at the very least)
 # include the full package manager command
-readonly package_installer='apk add --no-cache bats git ncurses procps-ng inotify-tools'
+readonly package_installer='apk add --no-cache bats git inotify-tools ncurses procps-ng'
 
 readonly -a interactive_shell=( /bin/bash --login )
 
@@ -79,11 +82,10 @@ gitwatch '$image_work_dir' &
 "
 )
 
-
-## pretty generic dockerfile
+## only a few things left to specify here directly
 
 print_dockerfile(){
-  echo 'FROM alpine:latest'
+  echo "FROM $image_from"
   echo "RUN $package_installer"
   echo "ENV TERM=xterm-256color"
   # add any custom instructions required...
